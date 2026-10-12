@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Bridge · 协作管理</title>
+  <style>
+    :root { color-scheme: light; --ink:#252525; --muted:#777; --line:#e7e7e4; --blue:#252525; --blue-soft:#f0f0ee; --paper:#fff; --bg:#fff; --green:#176a4a; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+    button,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:wait; opacity:.55; }
+    .app { display:grid; grid-template-columns:232px minmax(0,1fr); min-height:100vh; }
+    .sidebar { position:sticky; top:0; height:100vh; overflow:auto; padding:22px 13px; background:#f7f7f5; border-right:1px solid var(--line); }
+    .brand { display:flex; align-items:center; gap:10px; padding:0 10px 25px; font-size:16px; font-weight:750; }
+    .brand-mark { display:grid; place-items:center; width:30px; height:30px; color:#fff; background:#2b2b2b; border-radius:9px; font-size:18px; }
+    .nav-primary,.nav-item { display:block; width:100%; border:0; text-align:left; text-decoration:none; color:var(--ink); border-radius:9px; padding:9px 11px; }
+    .nav-primary { background:#e9e9e6; font-weight:700; margin-bottom:24px; }
+    .nav-primary:hover,.nav-item:hover,.archive-item:hover { background:#eaeae7; }
+    .nav-label { color:#898984; font-size:12px; font-weight:700; padding:0 11px; margin:20px 0 6px; }
+    .nav-item.active { background:#eaeae7; }
+    .archive-item.active { background:#eaeae7; }
+    .nav-item small { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); }
+    .sidebar-foot { margin:28px 10px 0; color:var(--muted); font-size:12px; }
+    .workspace { min-width:0; height:100vh; display:flex; flex-direction:column; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:70px; padding:12px 30px; background:#fff; border-bottom:1px solid var(--line); }
+    .eyebrow { margin:0; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    h1 { margin:0; font-size:18px; line-height:1.35; }
+    .thread { display:flex; flex-direction:column; flex:1; min-height:0; width:100%; }
+    .thread-head { padding:8px 24px 8px; border-bottom:1px solid var(--line); }
+    .thread-body { flex:1; min-height:0; overflow:auto; padding:18px 32px 32px; }
+    .composer { padding:16px 32px 24px; border-top:1px solid var(--line); background:#fff; }
+    .composer form { display:flex; align-items:flex-end; gap:10px; }
+    .composer textarea { min-height:72px; max-height:180px; flex:1; }
+    .composer .continue-agent { width:170px; }
+    .composer .primary { white-space:nowrap; }
+    .composer-note { margin:8px 0 0; color:var(--muted); font-size:12px; }
+    .agent-prompt-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    .agent-prompt-head select { width:auto; }
+    .agent-prompt .prompt-text { max-height:140px; margin:12px 0 0; }
+    h2 { margin:0 0 5px; font-size:18px; }
+    h3 { margin:20px 0 9px; font-size:16px; }
+    .sub { margin:0 0 16px; color:var(--muted); }
+    .status-row,.inline { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+    .status-row { margin:0; }
+    .pill { display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; background:var(--blue-soft); color:#555; font-size:12px; font-weight:700; }
+    .pill.green { background:#e9f7ef; color:var(--green); }
+    .pill.gray { background:#efefed; color:#666; }
+    form { display:grid; gap:12px; }
+    label { display:grid; gap:6px; font-weight:650; }
+    textarea,select { width:100%; border:1px solid #d8d8d4; border-radius:10px; background:#fff; color:var(--ink); padding:10px 12px; outline:none; }
+    textarea { min-height:90px; resize:vertical; }
+    textarea:focus,select:focus { border-color:#888; box-shadow:0 0 0 3px rgba(0,0,0,.07); }
+    .two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .primary,.secondary,.quiet { border-radius:10px; padding:9px 14px; font-weight:700; }
+    .primary { color:#fff; background:var(--blue); border:1px solid var(--blue); }
+    .secondary { color:#333; background:var(--blue-soft); border:1px solid #e3e3df; }
+    .quiet { color:#555; background:#fff; border:1px solid var(--line); }
+    .button-row { display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+    .hint { color:var(--muted); font-size:13px; margin:4px 0 0; }
+    .notice { background:#f5f5f2; border:1px solid #e9e9e5; border-radius:11px; padding:11px 13px; margin:10px 0 16px; white-space:pre-wrap; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; font:13px/1.6 Consolas,"Microsoft YaHei",monospace; }
+    .markdown { overflow-wrap:anywhere; }
+    .markdown h1 { margin:14px 0; font-size:22px; }
+    .markdown h2 { margin:28px 0 12px; font-size:17px; }
+    .markdown p { margin:8px 0 13px; white-space:pre-line; }
+    .markdown ul,.markdown ol { padding-left:25px; margin:8px 0 14px; }
+    .markdown li { margin:3px 0; }
+    .markdown pre { overflow:auto; padding:13px; border-radius:9px; background:#f4f4f2; }
+    .markdown code { background:#f3f3f0; border-radius:4px; padding:1px 4px; font-size:.9em; }
+    .markdown pre code { background:none; padding:0; }
+    .markdown blockquote { margin:12px 0; padding:1px 14px; border-left:3px solid #d9d9d5; color:#60605d; }
+    .message { padding:22px 0; border-top:1px solid var(--line); }
+    .message h3 { margin:0 0 14px; font-size:13px; color:#5e5e5a; }
+    .empty { display:grid; place-items:center; min-height:40vh; color:var(--muted); text-align:center; }
+    .session-tools { margin:14px 0; }
+    .session-tools summary { cursor:pointer; color:var(--muted); font-size:13px; }
+    .session-tools .button-row { margin-top:12px; }
+    .session-tools .inline { margin-top:12px; }
+    dialog { width:min(560px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; border:1px solid var(--line); border-radius:15px; padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.18); }
+    dialog::backdrop { background:rgba(0,0,0,.36); }
+    .dialog-head { display:flex; justify-content:space-between; align-items:start; gap:15px; margin-bottom:16px; }
+    .dialog-head h2 { margin:0; }
+    .prompt-text { max-height:260px; overflow:auto; padding:14px; background:#f7f7f5; border:1px solid var(--line); border-radius:10px; }
+    .archive-list { display:grid; gap:4px; }
+    .archive-item { width:100%; display:flex; flex-direction:column; align-items:flex-start; text-align:left; gap:2px; border:0; background:transparent; border-radius:9px; padding:8px 11px; }
+    .archive-item strong { max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-weight:500; }
+    .archive-item small { color:var(--muted); }
+    .feedback { position:fixed; right:20px; bottom:20px; max-width:min(420px,calc(100vw - 40px)); color:#fff; background:#183354; border-radius:10px; padding:11px 15px; box-shadow:0 12px 36px rgba(0,0,0,.18); z-index:5; }
+    .feedback.error { background:#9b3030; }
+    [hidden] { display:none !important; }
+    @media (max-width:700px) { .app { display:block; } .sidebar { position:static; width:auto; height:auto; padding:12px 16px; } .brand { padding:0 0 10px; } .nav-primary { margin:0 0 8px; } .nav-label { margin:10px 0 4px; } .archive-list { max-height:140px; overflow:auto; } .sidebar-foot { display:none; } .workspace { height:calc(100vh - 190px); min-height:560px; } .topbar { padding:12px 16px; } .thread-head,.thread-body,.composer { padding-left:16px; padding-right:16px; } .composer form { align-items:stretch; flex-direction:column; } .composer .continue-agent { width:100%; } .two { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="会话导航">
+      <div class="brand"><span class="brand-mark">A</span>Agent Bridge</div>
+      <button type="button" class="nav-primary" id="openNew">＋ 开启新会话</button>
+      <p class="nav-label">会话</p>
+      <button type="button" class="nav-item active" id="showCurrent">当前会话<small id="sidebarCurrent">正在读取状态…</small></button>
+      <p class="nav-label">其他会话</p>
+      <div id="historyList" class="archive-list"></div>
+      <p class="sidebar-foot">本地协作 · 每个会话一份 Markdown</p>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div><p class="eyebrow">Local · Agent Bridge</p><h1>协作会话</h1></div>
+      </header>
+      <main class="thread">
+        <div class="thread-head">
+          <div class="status-row">
+            <span class="pill" id="modeBadge">chat</span>
+            <span class="pill gray" id="statusBadge">加载中</span>
+            <span class="hint" id="sessionMeta"></span>
+          </div>
+        </div>
+        <div class="thread-body" id="threadScroll">
+          <div class="markdown" id="markdownView">正在读取讨论记录…</div>
+        </div>
+        <div class="composer">
+          <div class="agent-prompt" id="agentPromptPanel" hidden>
+            <div class="agent-prompt-head">
+              <div><strong>Agent 提示词</strong><p class="hint">复制后发送到对应 Agent 的聊天窗口。</p></div>
+              <div class="inline"><select id="inlinePromptAgent" aria-label="选择 Agent"></select><select id="inlinePromptVariant" aria-label="提示词版本"><option value="resume">已有上下文</option><option value="full">首次加入 / 上下文丢失</option></select><button type="button" class="primary" id="copyInlinePrompt">复制提示词</button></div>
+            </div>
+            <pre class="prompt-text" id="inlinePromptText"></pre>
+          </div>
+          <div class="notice" id="pendingQuestion" hidden></div>
+          <div class="button-row" id="switchSessionPanel" hidden><button type="button" class="secondary" id="switchSessionButton">切换到此会话</button></div>
+          <form id="continueForm">
+            <textarea name="message" required aria-label="追问或后续任务" placeholder="输入追问或后续任务…"></textarea>
+            <label class="continue-agent">开始 Agent<select name="first" id="continueFirst"></select></label>
+            <button class="primary" type="submit" id="continueButton">发送追问</button>
+          </form>
+          <p class="composer-note" id="composerHint">内容会写入当前选中的会话；随后复制提示词给 Agent。</p>
+          <p class="hint" id="readOnlyHint" hidden>这份旧记录可以查看，但没有可恢复的发言状态。</p>
+          <details class="session-tools" id="sessionTools" hidden>
+            <summary>会话设置</summary>
+            <div class="inline">
+              <label for="modePicker">模式</label>
+              <select id="modePicker" style="width:auto"><option value="chat">chat · 讨论</option><option value="build">build · 执行</option></select>
+              <button type="button" class="secondary" id="changeMode">应用</button>
+            </div>
+            <p class="hint">chat 只读讨论；build 允许 Agent 修改当前任务相关的业务文件。</p>
+            <div class="button-row">
+              <button type="button" class="quiet" data-action="pause" id="pauseButton">暂停</button>
+              <button type="button" class="quiet" data-action="resume" id="resumeButton">恢复</button>
+              <button type="button" class="quiet" data-action="extend">扩容额度</button>
+              <button type="button" class="quiet" data-action="finish">结束会话</button>
+            </div>
+          </details>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="newDialog">
+    <div class="dialog-head"><div><h2>开启新会话</h2><p class="sub">创建后会自动保存记录，并给出发送给首位 Agent 的提示词。</p></div><button type="button" class="quiet" id="closeNew" aria-label="关闭">×</button></div>
+    <form id="newForm">
+      <label>主题或任务<textarea name="topic" required placeholder="描述本次要讨论的问题或完成的任务"></textarea></label>
+      <div class="two">
+        <label>模式<select name="mode"><option value="chat">chat · 只读讨论</option><option value="build">build · 可修改任务文件</option></select></label>
+        <label>首位 Agent<select name="first"></select></label>
+      </div>
+      <p class="hint">新会话会生成独立的 Markdown 文件；当前会话仍可从左侧打开。</p>
+      <button class="primary" type="submit">创建会话</button>
+    </form>
+  </dialog>
+
+  <div id="feedback" class="feedback" role="status" hidden></div>
+  <script>
+    const $ = id => document.getElementById(id);
+    const labels = {running:'进行中', paused:'已暂停', waiting_user:'等待答复', finished:'已结束'};
+    let current;
+    let selectedSessionId = null;
+    let selectedDoc = '';
+    let displayedKey = '';
+    let historyKey = '';
+    let inlinePromptKey = '';
+    let continueSessionKey = '';
+    let feedbackTimer;
+    let busy = false;
+
+    function feedback(message, error = false) {
+      const el = $('feedback');
+      el.textContent = message;
+      el.classList.toggle('error', error);
+      el.hidden = false;
+      clearTimeout(feedbackTimer);
+      feedbackTimer = setTimeout(() => { el.hidden = true; }, 5000);
+    }
+
+    function optionsFor(select, agents, preferred) {
+      const previous = select.value;
+      select.replaceChildren(...agents.map(agent => {
+        const option = document.createElement('option');
+        option.value = agent.id;
+        option.textContent = agent.name + ' (' + agent.id + ')';
+        return option;
+      }));
+      const ids = agents.map(agent => agent.id);
+      select.value = ids.includes(preferred) ? preferred : ids.includes(previous) ? previous : ids[0] || '';
+    }
+
+    function topicOf(doc) {
+      const lines = doc.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      return (lines[1] || lines[0] || '未命名会话').replace(/^#+\s*/, '');
+    }
+
+    function promptVariantFor(agent) {
+      const participated = current.discussion.split(/\r?\n/).some(line => line.startsWith('### ') && line.includes(' (' + agent.id + ') · '));
+      return participated ? 'resume' : 'full';
+    }
+
+    function promptFor(agent, variant) {
+      if (variant === 'resume') {
+        return '请以 ' + agent.id + ' 身份继续当前 Agent Bridge 会话，按已有协议检查状态和讨论记录中的新增内容，轮到你时处理本轮问题。';
+      }
+      return '你的身份是 ' + agent.id + '。请完整阅读 ' + current.protocolPath +
+        '，分别运行 node "' + current.bridgePath + '" agents 与 node "' + current.bridgePath + '" status，确认当前模式与发言权，并严格按协议参与。' +
+        '首次加入时读取 status 输出的 discussion 文件；之后优先查看新增内容。仅在轮到自己时发言或执行任务。';
+    }
+
+    function updateInlinePrompt() {
+      const agent = current.agents.find(item => item.id === $('inlinePromptAgent').value);
+      if (agent) $('inlinePromptText').textContent = promptFor(agent, $('inlinePromptVariant').value);
+    }
+
+    function appendInline(parent, source) {
+      const pattern = /(\x60[^\x60]+\x60|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
+      let cursor = 0;
+      for (const match of source.matchAll(pattern)) {
+        const index = match.index;
+        if (index > cursor) parent.append(document.createTextNode(source.slice(cursor, index)));
+        const token = match[0];
+        let element;
+        if (token.startsWith(String.fromCharCode(96))) {
+          element = document.createElement('code');
+          element.textContent = token.slice(1, -1);
+        } else if (token.startsWith('**')) {
+          element = document.createElement('strong');
+          element.textContent = token.slice(2, -2);
+        } else if (token.startsWith('*')) {
+          element = document.createElement('em');
+          element.textContent = token.slice(1, -1);
+        } else {
+          const parts = /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/.exec(token);
+          element = document.createElement('a');
+          element.href = parts[2];
+          element.target = '_blank';
+          element.rel = 'noopener noreferrer';
+          element.textContent = parts[1];
+        }
+        parent.append(element);
+        cursor = index + token.length;
+      }
+      if (cursor < source.length) parent.append(document.createTextNode(source.slice(cursor)));
+    }
+
+    function renderMarkdown(source) {
+      const host = $('markdownView');
+      host.replaceChildren();
+      if (!source.trim()) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = '暂无讨论记录。点击左侧“开启新会话”开始。';
+        host.append(empty);
+        return;
+      }
+      let target = host;
+      let paragraph = [];
+      let list = null;
+      let codeLines = null;
+      const flush = () => {
+        if (!paragraph.length) return;
+        const p = document.createElement('p');
+        let content = paragraph.join('\n');
+        // 旧记录中的明确编号可辅助阅读，普通长句不推断分段。
+        if (paragraph.length === 1 && content.length > 300 && /(?:^|】)\s*1\)\s/.test(content) && /[。！？；]\s*2\)\s/.test(content)) {
+          content = content.replace(/^(【[^】]+】)\s*(?=1\)\s)/, '$1\n\n').replace(/([。！？；])\s*(?=\d+\)\s)/g, '$1\n\n');
+        }
+        appendInline(p, content);
+        target.append(p);
+        paragraph = [];
+      };
+      const addCode = () => {
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.textContent = codeLines.join('\n');
+        pre.append(code);
+        target.append(pre);
+        codeLines = null;
+      };
+      for (const line of source.split(/\r?\n/)) {
+        if (codeLines) {
+          if (/^\s*\x60{3}/.test(line)) addCode();
+          else codeLines.push(line);
+          continue;
+        }
+        if (/^\s*\x60{3}/.test(line)) { flush(); list = null; codeLines = []; continue; }
+        const message = /^### (.+? · .+? · [^\r\n]+)$/.exec(line);
+        if (message) {
+          flush();
+          list = null;
+          const article = document.createElement('article');
+          article.className = 'message';
+          const title = document.createElement('h3');
+          title.textContent = message[1];
+          article.append(title);
+          host.append(article);
+          target = article;
+          continue;
+        }
+        const heading = /^(#{1,6})\s+(.+)$/.exec(line);
+        if (heading) {
+          flush();
+          list = null;
+          if (heading[1].length <= 2) target = host;
+          const title = document.createElement('h' + Math.min(heading[1].length, 6));
+          appendInline(title, heading[2]);
+          target.append(title);
+          continue;
+        }
+        if (/^\s*---+\s*$/.test(line)) { flush(); list = null; continue; }
+        if (!line.trim()) { flush(); list = null; continue; }
+        const item = /^(\s*)([-*]|\d+\.)\s+(.+)$/.exec(line);
+        if (item) {
+          flush();
+          const ordered = /\d/.test(item[2][0]);
+          if (!list || list.tagName !== (ordered ? 'OL' : 'UL')) {
+            list = document.createElement(ordered ? 'ol' : 'ul');
+            target.append(list);
+          }
+          const li = document.createElement('li');
+          li.style.marginLeft = Math.min(item[1].length, 8) * 5 + 'px';
+          appendInline(li, item[3]);
+          list.append(li);
+          continue;
+        }
+        if (/^>\s?/.test(line)) {
+          flush();
+          list = null;
+          const quote = document.createElement('blockquote');
+          const p = document.createElement('p');
+          appendInline(p, line.replace(/^>\s?/, ''));
+          quote.append(p);
+          target.append(quote);
+          continue;
+        }
+        list = null;
+        paragraph.push(line.trim());
+      }
+      flush();
+      if (codeLines) addCode();
+    }
+
+    function renderSidebar() {
+      $('sidebarCurrent').textContent = current.state ? topicOf(current.discussion) : '尚未创建';
+      $('showCurrent').classList.toggle('active', selectedSessionId === null);
+      const key = JSON.stringify([current.history, selectedSessionId]);
+      if (key === historyKey) return;
+      historyKey = key;
+      const host = $('historyList');
+      host.replaceChildren();
+      const older = current.history.filter(item => !item.active);
+      if (!older.length) {
+        const empty = document.createElement('p');
+        empty.className = 'hint';
+        empty.textContent = '暂无其他会话';
+        host.append(empty);
+        return;
+      }
+      for (const item of older) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'archive-item';
+        button.classList.toggle('active', selectedSessionId === item.id);
+        const title = document.createElement('strong');
+        title.textContent = item.topic;
+        const date = document.createElement('small');
+        date.textContent = item.id;
+        button.append(title, date);
+        button.addEventListener('click', () => openSession(item));
+        host.append(button);
+      }
+    }
+
+    function renderView() {
+      if (!current) return;
+      const item = selectedSessionId && current.history.find(entry => entry.id === selectedSessionId);
+      const active = !item;
+      const doc = active ? current.discussion : selectedDoc;
+      const state = active ? current.state : item;
+      const status = state && state.status;
+      $('sessionMeta').textContent = !state ? '尚未创建会话'
+        : (active ? '当前会话' : '历史会话') + (state.speaker ? ' · 发言权：' + state.speaker : '');
+      $('modeBadge').textContent = state ? state.mode || 'chat' : 'chat';
+      $('statusBadge').textContent = status ? labels[status] || status : '未开始';
+      $('statusBadge').className = 'pill ' + (status === 'running' ? 'green' : 'gray');
+      const showPrompt = active && status === 'running';
+      const showQuestion = active && status === 'waiting_user';
+      const showSwitch = !active && item.canContinue && status !== 'finished';
+      $('agentPromptPanel').hidden = !showPrompt;
+      $('continueForm').hidden = !state || status !== 'finished' || (!active && !item.canContinue);
+      if (state && status === 'finished' && (active || item.canContinue)) {
+        const key = (selectedSessionId || state.discussionId || 'legacy') + ':' + state.speaker;
+        const first = current.agents.some(agent => agent.id === state.speaker) ? state.speaker : current.agents[0].id;
+        optionsFor($('continueFirst'), current.agents, key === continueSessionKey ? null : first);
+        continueSessionKey = key;
+      }
+      $('switchSessionPanel').hidden = !showSwitch;
+      $('readOnlyHint').hidden = !state || active || item.canContinue;
+      $('sessionTools').hidden = !active || !state || status === 'finished';
+      $('pauseButton').hidden = status !== 'running' && status !== 'waiting_user';
+      $('resumeButton').hidden = status !== 'paused';
+      if (active && state && document.activeElement !== $('modePicker')) $('modePicker').value = state.mode || 'chat';
+      if (showPrompt) {
+        const promptKey = (state.discussionId || 'legacy') + ':' + state.turn + ':' + state.speaker;
+        optionsFor($('inlinePromptAgent'), current.agents, promptKey === inlinePromptKey ? null : state.speaker);
+        const agent = current.agents.find(entry => entry.id === $('inlinePromptAgent').value);
+        if (promptKey !== inlinePromptKey && agent) $('inlinePromptVariant').value = promptVariantFor(agent);
+        inlinePromptKey = promptKey;
+        updateInlinePrompt();
+      }
+      $('pendingQuestion').hidden = !showQuestion;
+      if (showQuestion) {
+        const pending = current.pendingQuestion;
+        const agent = current.agents.find(entry => entry.id === pending?.asker);
+        const name = agent ? agent.name + ' (' + agent.id + ')' : '提问的 Agent';
+        $('pendingQuestion').textContent = pending?.text
+          ? `请在 ${name} 的聊天窗口直接答复以下问题：\n\n${pending.text}`
+          : `请在 ${name} 的聊天窗口直接答复；Agent 会按协议记录你的回复。`;
+      }
+      $('composerHint').textContent = !state ? '点击左侧“开启新会话”开始。'
+        : !active && !item.canContinue ? '这份旧记录没有可恢复的发言状态。'
+        : showSwitch ? '先切换到这份会话，再按当前状态继续。'
+        : status === 'paused' ? '会话已暂停，可在会话设置中恢复。'
+        : status === 'finished' ? '结束后可在这里提出追问或后续任务。'
+        : '';
+      $('composerHint').hidden = showPrompt || showQuestion || (!active && !item.canContinue);
+      const key = (selectedSessionId || 'current') + ':' + doc;
+      if (key !== displayedKey) {
+        const scroll = $('threadScroll');
+        const atEnd = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+        const changedSession = !displayedKey.startsWith((selectedSessionId || 'current') + ':');
+        renderMarkdown(doc);
+        displayedKey = key;
+        if (changedSession || atEnd) scroll.scrollTop = scroll.scrollHeight;
+      }
+      renderSidebar();
+    }
+
+    async function openSession(item) {
+      try {
+        const result = await fetch('/api/history/' + encodeURIComponent(item.id));
+        const data = await result.json();
+        if (!result.ok) throw new Error(data.error);
+        selectedSessionId = item.id;
+        selectedDoc = data.discussion;
+        renderView();
+      } catch (error) { feedback(error.message, true); }
+    }
+
+    async function refresh() {
+      try {
+        const result = await fetch('/api/snapshot');
+        const data = await result.json();
+        if (!result.ok) throw new Error(data.error);
+        current = data;
+        if (selectedSessionId && !data.history.some(item => item.id === selectedSessionId && !item.active)) {
+          selectedSessionId = null;
+          selectedDoc = '';
+        }
+        optionsFor(document.querySelector('#newForm [name=first]'), data.agents);
+        renderView();
+      } catch (error) { feedback('读取状态失败：' + error.message, true); }
+    }
+
+    async function act(input) {
+      if (busy || !current) return null;
+      busy = true;
+      $('continueButton').disabled = true;
+      $('switchSessionButton').disabled = true;
+      const createButton = $('newForm').querySelector('button[type=submit]');
+      createButton.disabled = true;
+      try {
+        const result = await fetch('/api/action', {
+          method:'POST', headers:{'Content-Type':'application/json', 'X-Bridge-Token':current.token},
+          body:JSON.stringify(input)
+        });
+        const data = await result.json();
+        if (!result.ok) throw new Error(data.error);
+        await refresh();
+        feedback(data.output || '操作完成');
+        return data;
+      } catch (error) { feedback(error.message, true); return null; }
+      finally { busy = false; $('continueButton').disabled = false; $('switchSessionButton').disabled = false; createButton.disabled = false; }
+    }
+
+    $('openNew').addEventListener('click', () => {
+      if (!current) { feedback('正在读取 Agent 配置，请稍候'); return; }
+      $('newDialog').showModal();
+    });
+    $('closeNew').addEventListener('click', () => $('newDialog').close());
+    $('newForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      const first = data.get('first');
+      const result = await act({action:'new', topic:data.get('topic'), mode:data.get('mode'), first});
+      if (!result) return;
+      $('newDialog').close();
+      event.currentTarget.querySelector('textarea').value = '';
+      selectedSessionId = null;
+      renderView();
+    });
+    $('showCurrent').addEventListener('click', () => {
+      selectedSessionId = null;
+      selectedDoc = '';
+      renderView();
+    });
+    $('switchSessionButton').addEventListener('click', async () => {
+      const result = await act({action:'switch', id:selectedSessionId});
+      if (!result) return;
+      selectedSessionId = null;
+      selectedDoc = '';
+      renderView();
+    });
+    $('continueForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const textarea = event.currentTarget.querySelector('textarea');
+      const result = await act({action:'continue', id:selectedSessionId || current.state?.discussionId, first:$('continueFirst').value, message:textarea.value});
+      if (!result) return;
+      textarea.value = '';
+      selectedSessionId = null;
+      selectedDoc = '';
+      renderView();
+    });
+    $('inlinePromptAgent').addEventListener('change', () => {
+      const agent = current.agents.find(item => item.id === $('inlinePromptAgent').value);
+      if (agent) $('inlinePromptVariant').value = promptVariantFor(agent);
+      updateInlinePrompt();
+    });
+    $('inlinePromptVariant').addEventListener('change', updateInlinePrompt);
+    async function copyPromptText(value) {
+      try { await navigator.clipboard.writeText(value); feedback('提示词已复制'); }
+      catch { feedback('复制失败，请手动选择提示词', true); }
+    }
+    $('copyInlinePrompt').addEventListener('click', () => copyPromptText($('inlinePromptText').textContent));
+    $('changeMode').addEventListener('click', () => act({action:'mode', mode:$('modePicker').value}));
+    document.querySelectorAll('[data-action]').forEach(button =>
+      button.addEventListener('click', () => act({action:button.dataset.action})));
+    refresh();
+    setInterval(refresh, 4000);
+  </script>
+</body>
+</html>

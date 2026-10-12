@@ -1,0 +1,7 @@
+/state.json
+/sessions/
+/history/
+/discussion.md
+/.bridge.lock
+/.state.*.tmp
+/*.zip

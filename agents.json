@@ -1,0 +1,6 @@
+{
+  "agents": [
+    { "id": "agent-a", "name": "Agent A" },
+    { "id": "agent-b", "name": "Agent B" }
+  ]
+}
