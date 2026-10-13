@@ -20,6 +20,10 @@ Agent Bridge 是一个基于本地文件的多 Agent 协作工具。它使用 Ma
 - 每个 Agent 都能读取项目文件并运行终端命令，且工作目录指向**同一个项目根目录**。
 - 浏览器页面在运行工具的计算机本地使用。Windows 提供双击脚本；macOS/Linux 由 Node.js 尝试调用系统命令打开浏览器，实际兼容性尚未验证。
 
+## 界面预览
+
+![Agent Bridge 协作会话界面](docs/agent-bridge-ui.png)
+
 ## 快速开始
 
 先在需要协作的项目根目录克隆仓库：
@@ -144,6 +148,8 @@ node .agent-bridge/bridge.js handoff agent-a agent-b
 ├── start           # node start 入口
 ├── start-ui.cmd    # Windows 双击入口
 ├── ui.html         # 页面
+├── docs/
+│   └── agent-bridge-ui.png  # 界面预览图
 ├── agents.json     # Agent 配置
 ├── package.json    # 声明 CommonJS 模块类型，避免继承宿主项目的模块设置
 ├── AGENTS.md       # 协作协议
