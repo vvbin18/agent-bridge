@@ -145,6 +145,7 @@ node .agent-bridge/bridge.js handoff agent-a agent-b
 ├── start-ui.cmd    # Windows 双击入口
 ├── ui.html         # 页面
 ├── agents.json     # Agent 配置
+├── package.json    # 声明 CommonJS 模块类型，避免继承宿主项目的模块设置
 ├── AGENTS.md       # 协作协议
 ├── README.md
 ├── LICENSE
